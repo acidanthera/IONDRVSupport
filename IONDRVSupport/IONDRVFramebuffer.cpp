@@ -4286,13 +4286,14 @@ IOReturn IOBootNDRV::doStatus( UInt32 code, void * params )
                 }
                 VPBlock *	pixelInfo = pixelParams->csVPBlockPtr;
 
-                pixelInfo->vpBounds.left	= 0;
-                pixelInfo->vpBounds.top	= 0;
-                pixelInfo->vpBounds.right	= fWidth;
-                pixelInfo->vpBounds.bottom	= fHeight;
-                pixelInfo->vpRowBytes	= fRowBytes;
-                pixelInfo->vpPlaneBytes	= 0;
-                pixelInfo->vpPixelSize	= fBitsPerPixel;
+                bzero(pixelInfo, sizeof(VPBlock));
+                pixelInfo->vpBounds.right  = fWidth;
+                pixelInfo->vpBounds.bottom = fHeight;
+                pixelInfo->vpRowBytes	   = fRowBytes;
+                pixelInfo->vpPixelSize	   = fBitsPerPixel;
+                pixelInfo->vpPixelType     = kIORGBDirectPixels;
+                pixelInfo->vpCmpCount      = 3;
+                pixelInfo->vpCmpSize       = (fBitsPerPixel <= 16) ? 5 : 8;
                 ret = kIOReturnSuccess;
             }
             break;
