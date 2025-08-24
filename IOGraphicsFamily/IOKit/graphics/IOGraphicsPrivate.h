@@ -97,6 +97,12 @@ do { 					\
 #define kIOUserClientSharedInstanceKey  "IOUserClientSharedInstance"
 #endif
 
+extern "C" {
+typedef uint32_t ppnum_t;
+typedef struct pmap		*pmap_t;
+extern pmap_t	kernel_pmap;
+};
+
 extern "C" ppnum_t pmap_find_phys(pmap_t map, addr64_t va);
 
 extern "C" vm_map_t IOPageableMapForAddress( vm_address_t address );

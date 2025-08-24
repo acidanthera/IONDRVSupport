@@ -45,12 +45,14 @@ extern "C"
 
 extern void *kern_os_malloc(size_t size);
 extern void  kern_os_free(void * addr);
+extern void  delay_for_interval(uint32_t interval, uint32_t scale_factor);
 #ifdef __ppc__
 extern int   get_preemption_level(void);
 #endif
 
 #define LOG		if(1) IOLog
 #define LOGNAMEREG	0
+#define DB_KPRT		0x8
 
 #define CHECK_INTERRUPT(s)					\
 if( ml_at_interrupt_context()) {				\
@@ -1040,6 +1042,45 @@ OSErr EXP(IOCommandIsComplete)( IOCommandID commandID, OSErr result)
 
 #include <kern/clock.h>
 
+OS_INLINE
+uint64_t
+__OSAbsoluteTime(
+	AbsoluteTime	abstime)
+{
+	return (*(uint64_t *)&abstime);
+}
+
+OS_INLINE
+uint64_t *
+__OSAbsoluteTimePtr(
+	AbsoluteTime	*abstime)
+{
+	return ((uint64_t *)abstime);
+}
+
+#define AbsoluteTime_to_scalar(x)	(*(uint64_t *)(x))
+
+/* t1 < = > t2 */
+#define CMP_ABSOLUTETIME(t1, t2)				\
+	(AbsoluteTime_to_scalar(t1) >				\
+		AbsoluteTime_to_scalar(t2)? (int)+1 :	\
+	 (AbsoluteTime_to_scalar(t1) <				\
+		AbsoluteTime_to_scalar(t2)? (int)-1 : 0))
+
+/* t1 += t2 */
+#define ADD_ABSOLUTETIME(t1, t2)				\
+	(AbsoluteTime_to_scalar(t1) +=				\
+				AbsoluteTime_to_scalar(t2))
+
+/* t1 -= t2 */
+#define SUB_ABSOLUTETIME(t1, t2)				\
+	(AbsoluteTime_to_scalar(t1) -=				\
+				AbsoluteTime_to_scalar(t2))
+
+#define ADD_ABSOLUTETIME_TICKS(t1, ticks)		\
+	(AbsoluteTime_to_scalar(t1) +=				\
+						(int32_t)(ticks))
+	
 #define UnsignedWideToUInt64(x)		(*(UInt64 *)(x))
 #define UInt64ToUnsignedWide(x)		(*(UnsignedWide *)(x))
 
@@ -1095,12 +1136,12 @@ UnsignedWide    EXP(DurationToAbsolute)( Duration theDuration)
     if (theDuration > 0)
     {
 	clock_interval_to_absolutetime_interval( theDuration, kMillisecondScale,
-		&result );
+		(uint64_t*)(void*)&result );
     }
     else
     {
 	clock_interval_to_absolutetime_interval( (-theDuration), kMicrosecondScale,
-		&result );
+		(uint64_t*)(void*)&result );
     }
 
     return (AbsoluteTimeToUnsignedWide(&result));
@@ -1116,7 +1157,7 @@ UnsignedWide    EXP(NanosecondsToAbsolute) ( UnsignedWide theNanoseconds)
     AbsoluteTime result;
     UInt64	 nano = UnsignedWideToUInt64(&theNanoseconds);
 
-    nanoseconds_to_absolutetime( nano, &result);
+    nanoseconds_to_absolutetime( nano, (uint64_t*)(void*)&result);
 
     return (AbsoluteTimeToUnsignedWide(&result));
 }
@@ -1126,7 +1167,7 @@ UnsignedWide    EXP(AbsoluteToNanoseconds)( UnsignedWide absolute )
     UnsignedWide result;
     UInt64	nano;
 
-    absolutetime_to_nanoseconds( UnsignedWideToAbsoluteTime(&absolute), &nano);
+    absolutetime_to_nanoseconds( UnsignedWideToUInt64(&absolute), &nano);
     result = UInt64ToUnsignedWide( &nano );
 
     return (result);
@@ -1135,13 +1176,13 @@ UnsignedWide    EXP(AbsoluteToNanoseconds)( UnsignedWide absolute )
 Duration    EXP(AbsoluteDeltaToDuration)( UnsignedWide left, UnsignedWide right )
 {
     Duration		dur;
-    AbsoluteTime	result;
+    UInt64	result;
     UInt64		nano;
 
     if (CMP_ABSOLUTETIME(&left, &right) < 0)
 	return (0);
 
-    result = UnsignedWideToAbsoluteTime(&left);
+    result = UnsignedWideToUInt64(&left);
     SUB_ABSOLUTETIME( &result, &right);
     absolutetime_to_nanoseconds( result, &nano);
 
@@ -1167,7 +1208,7 @@ Duration    EXP(AbsoluteToDuration)( UnsignedWide result )
     Duration		dur;
     UInt64		nano;
 
-    absolutetime_to_nanoseconds( UnsignedWideToAbsoluteTime(&result), &nano);
+    absolutetime_to_nanoseconds( UnsignedWideToUInt64(&result), &nano);
 
     if (nano >= ((1ULL << 31) * 1000ULL))
     {
@@ -1191,16 +1232,16 @@ OSStatus    EXP(DelayForHardware)( UnsignedWide time )
     AbsoluteTime	deadline;
 
     clock_absolutetime_interval_to_deadline( 
-            UnsignedWideToAbsoluteTime(&time), &deadline );
+            UnsignedWideToUInt64(&time), (uint64_t*)&deadline );
 
-    clock_delay_until( deadline );
+    clock_delay_until( UnsignedWideToUInt64(&deadline) );
 
     return (noErr);
 }
 
 OSStatus    EXP(DelayUntil)( UnsignedWide time )
 {
-    clock_delay_until(UnsignedWideToAbsoluteTime(&time));
+    clock_delay_until(UnsignedWideToUInt64(&time));
     return (noErr);
 }
 
